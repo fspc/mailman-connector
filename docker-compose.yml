@@ -1,0 +1,40 @@
+# lynx -auth=restadmin:restpass http://172.19.199.2:8001/3.1/addresses --source
+
+version: "3.8"
+
+services:
+  node:
+    build:
+      context: .
+      args:
+        - HOST_PORT=${HOST_PORT}
+    image: mailman-connector 
+    container_name: mailman-connector
+    #user: node
+    ports:
+      - "${HOST_PORT}:${CONTAINER_PORT}"
+    #volumes:
+    #  - .:/home/node/app/
+    environment:
+      - NODE_ENV=${ENV}
+      - NPM_CONFIG_LOGLEVEL=${LOGLEVEL}
+      - VIRTUAL_PORT=${HOST_PORT}
+      - VIRTUAL_HOST=${LETSENCRYPT_HOST}
+      - LETSENCRYPT_HOST=${LETSENCRYPT_HOST}
+      - LETSENCRYPT_EMAIL="jr@freesoftwarepc.com"
+      - SECRET_PASSWORD=${SECRET_PASSWORD}
+      - MAILMAN_USERNAME=${MAILMAN_USERNAME}
+      - MAILMAN_PASSWORD=${MAILMAN_PASSWORD}
+      - MAILMAN_LIST_ID=${MAILMAN_LIST_ID}
+      - HOSTNAME=${HOSTNAME}
+      - PORT=${PORT}      
+    restart: always
+    networks:
+      letsencrypt:
+      mailman:
+
+networks:
+   mailman:
+     external: true
+   letsencrypt:
+     external: true
