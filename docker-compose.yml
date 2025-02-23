@@ -27,7 +27,12 @@ services:
       - MAILMAN_PASSWORD=${MAILMAN_PASSWORD}
       - MAILMAN_LIST_ID=${MAILMAN_LIST_ID}
       - HOSTNAME=${HOSTNAME}
-      - PORT=${PORT}      
+      - PORT=${PORT}
+    logging:
+      driver: "json-file"  
+      options:
+        max-size: "10m"
+        max-file: "3"            
     restart: always
     networks:
       letsencrypt:
