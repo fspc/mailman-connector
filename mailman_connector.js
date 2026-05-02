@@ -245,17 +245,19 @@ function unsubscribe_member_id(member_id, response) {
 }
 
 // Get all members from the mailing list (handles pagination)
+// Uses correct Mailman 3 API endpoint: /3.1/lists/{list_id}/roster/member
 function get_all_members(list_id_override) {
   return new Promise((resolve, reject) => {
     let members = [];
-    let page_token = null;
+    let page = 1;
+    const count = 50;  // Members per page
     let list_id = list_id_override || process.env.MAILMAN_LIST_ID;
 
     function fetch_page() {
-      let path = '/3.1/lists/' + list_id + '/members';
-      if (page_token) {
-        path += '?token=' + encodeURIComponent(page_token);
-      }
+      // Use CORRECT endpoint: /3.1/lists/{list_id}/roster/member
+      // with count/page pagination (not token-based)
+      let path = '/3.1/lists/' + encodeURIComponent(list_id) +
+                 '/roster/member?count=' + count + '&page=' + page;
 
       let mailman_options = {
         hostname: hostname,
@@ -270,22 +272,46 @@ function get_all_members(list_id_override) {
         res.on('data', (chunk) => { body += chunk; });
         res.on('end', () => {
           try {
-            let parsed = JSON.parse(body);
-            if (parsed.entries) {
-              members = members.concat(parsed.entries.map(e => e.address || e.email));
+            console.log('get_all_members status:', res.statusCode, 'page:', page);
+
+            if (res.statusCode !== 200) {
+              console.error('get_all_members error:', body);
+              reject(new Error('HTTP ' + res.statusCode + ': ' + body));
+              return;
             }
-            if (parsed.token) {
-              page_token = parsed.token;
+
+            let parsed = JSON.parse(body);
+            console.log('Entries found:', parsed.entries ? parsed.entries.length : 0,
+                        'total_size:', parsed.total_size);
+
+            if (parsed.entries) {
+              // Extract emails - roster endpoint provides e.email directly
+              parsed.entries.forEach(e => {
+                if (e.email) {
+                  members.push(e.email.toLowerCase());
+                }
+              });
+            }
+
+            // Check if there are more pages
+            const totalPages = Math.ceil((parsed.total_size || 0) / count);
+            if (page < totalPages) {
+              page++;
               fetch_page();
             } else {
+              console.log('Total members found:', members.length);
               resolve(members);
             }
           } catch (err) {
+            console.error('Parse error:', err);
             reject(err);
           }
         });
       });
-      req.on('error', reject);
+      req.on('error', (err) => {
+        console.error('Request error:', err);
+        reject(err);
+      });
       req.end();
     }
 

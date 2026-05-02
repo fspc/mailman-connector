@@ -7,7 +7,7 @@
 #   ./test-subscribe-members.sh test.csv listname.atlists.coollists.org 
 
 # Configuration
-CONNECTOR_URL="https://mailman-connector.coollists.org"
+CONNECTOR_URL="${CONNECTOR_URL:-https://mailman-connector.coollists.org}"
 CONNECTOR_PASSWORD="${CONNECTOR_PASSWORD:-your_secret_password}"
 LIST_ID="${2:-listname.atlists.coollists.org}"
 CSV_FILE="$1"
