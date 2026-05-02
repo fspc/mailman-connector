@@ -1,41 +1,78 @@
 #!/bin/bash
-# Test script for batch subscribing members from an existing CSV file
-# Usage: ./test-subscribe-members.sh <csv_file> [list_id]
+# Production batch subscription script for LWVWV members
+# Usage: ./subscribe-members.sh <csv_file> <password> [list_id] [connector_url]
+#
+# This script reads a CSV file (email,first_name,last_name) and subscribes
+# all members to the specified Mailman list via the connector API.
+#
+# Arguments:
+#   csv_file        Path to CSV file with format: email,first_name,last_name
+#   password        Secret password for the mailman-connector (required)
+#   list_id         Target mailing list (default: members.lists.example.org)
+#   connector_url   URL of the mailman-connector (default: https://mailman-connector.example.com)
 #
 # Example:
-#   ./test-subscribe-members.sh test.csv
-#   ./test-subscribe-members.sh test.csv listname.atlists.coollists.org 
+#   ./subscribe-members.sh members.csv mysecretpassword
+#   ./subscribe-members.sh members.csv mysecretpassword test.lists.example.org
+#   ./subscribe-members.sh members.csv mysecretpassword test.lists.example.org https://connector.example.com
 
-# Configuration
-CONNECTOR_URL="${CONNECTOR_URL:-https://mailman-connector.coollists.org}"
-CONNECTOR_PASSWORD="${CONNECTOR_PASSWORD:-your_secret_password}"
-LIST_ID="${2:-listname.atlists.coollists.org}"
-CSV_FILE="$1"
+# Show help
+show_help() {
+    cat << EOF
+Usage: $0 <csv_file> <password> [list_id] [connector_url]
 
-# Check if CSV file is provided
+Arguments:
+  csv_file        Path to CSV file with format: email,first_name,last_name
+  password        Secret password for the mailman-connector (required)
+  list_id         Target mailing list (default: members.lists.example.org)
+  connector_url   URL of the mailman-connector (default: https://mailman-connector.example.com)
+
+Examples:
+  $0 members.csv mysecretpassword
+  $0 members.csv mysecretpassword test.lists.example.org
+  $0 members.csv mysecretpassword test.lists.example.org https://connector.example.com
+
+CSV Format:
+  The CSV file should have one member per line:
+  email@example.com,FirstName,LastName
+  another@example.com,John,Doe
+
+EOF
+}
+
+# Check for help flag
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    show_help
+    exit 0
+fi
+
+# Parse arguments
+CSV_FILE="${1:-}"
+CONNECTOR_PASSWORD="${2:-}"
+LIST_ID="${3:-members.lists.example.org}"
+CONNECTOR_URL="${4:-https://mailman-connector.example.com}"
+
+# Validation
 if [ -z "$CSV_FILE" ]; then
-    echo "Usage: $0 <csv_file> [list_id]"
+    echo "Error: CSV file argument is required"
     echo ""
-    echo "Arguments:"
-    echo "  csv_file    Path to CSV file with format: email,first_name,last_name"
-    echo "  list_id     Optional: Target mailing list (default: listname.atlists.coollists.org)"
-    echo ""
-    echo "Examples:"
-    echo "  $0 test.csv"
-    echo "  $0 members.csv listname.atlists.coollists.org"
-    echo ""
-    echo "Environment Variables:"
-    echo "  CONNECTOR_PASSWORD    Secret password for connector (can also be set via env)"
+    show_help
     exit 1
 fi
 
-# Check if file exists
+if [ -z "$CONNECTOR_PASSWORD" ]; then
+    echo "Error: Password argument is required"
+    echo ""
+    show_help
+    exit 1
+fi
+
 if [ ! -f "$CSV_FILE" ]; then
     echo "Error: File not found: $CSV_FILE"
     exit 1
 fi
 
-# Validate CSV file format (basic check)
+# Validate CSV format
 if ! grep -q ',' "$CSV_FILE"; then
     echo "Error: CSV file appears invalid (no commas found)"
     echo "Expected format: email,first_name,last_name"
@@ -44,12 +81,16 @@ fi
 
 # Read CSV content
 CSV_DATA=$(cat "$CSV_FILE")
+if [ -z "$CSV_DATA" ]; then
+    echo "Error: CSV file is empty"
+    exit 1
+fi
 
 # Count members
 MEMBER_COUNT=$(wc -l < "$CSV_FILE" | tr -d ' ')
 
 echo "=========================================="
-echo "Mailman Connector - Batch Subscribe Test"
+echo "LWVWV Member Subscription"
 echo "=========================================="
 echo "Connector URL: $CONNECTOR_URL"
 echo "Target List:   $LIST_ID"
@@ -66,7 +107,7 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # Send to connector
-echo "Sending request to connector..."
+echo "Subscribing members..."
 echo ""
 
 RESPONSE=$(curl -s -X POST "$CONNECTOR_URL" \
@@ -78,7 +119,7 @@ RESPONSE=$(curl -s -X POST "$CONNECTOR_URL" \
     \"csv_data\": $(echo "$CSV_DATA" | jq -R -s .)
   }")
 
-# Check if response is valid JSON
+# Check response
 if echo "$RESPONSE" | jq -e . &> /dev/null; then
     echo "Response:"
     echo "$RESPONSE" | jq .
@@ -87,8 +128,8 @@ if echo "$RESPONSE" | jq -e . &> /dev/null; then
     if echo "$RESPONSE" | jq -e '.summary' &> /dev/null; then
         echo ""
         echo "Summary:"
-        echo "  Total received:      $(echo "$RESPONSE" | jq -r '.summary.total_received // "N/A"')"
-        echo "  Subscribed:          $(echo "$RESPONSE" | jq -r '.summary.subscribed // "N/A"')"
+        echo "  Total processed:     $(echo "$RESPONSE" | jq -r '.summary.total_received // "N/A"')"
+        echo "  Newly subscribed:    $(echo "$RESPONSE" | jq -r '.summary.subscribed // "N/A"')"
         echo "  Already subscribed:  $(echo "$RESPONSE" | jq -r '.summary.already_subscribed // "N/A"')"
         echo "  Errors:              $(echo "$RESPONSE" | jq -r '.summary.errors // "N/A"')"
     fi

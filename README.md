@@ -294,16 +294,25 @@ Test batch subscription from an existing CSV file (standalone, no external depen
 
 **Usage:**
 ```bash
-./test-subscribe-members2.sh <csv_file> [list_id]
+./test-subscribe-members.sh <csv_file> <password> [list_id] [connector_url]
 ```
+
+**Arguments:**
+- `csv_file` - Path to CSV file with format: email,first_name,last_name
+- `password` - Secret password for the mailman-connector (required)
+- `list_id` - Target mailing list (default: members.lists.example.org)
+- `connector_url` - URL of the mailman-connector (default: https://mailman-connector.example.com)
 
 **Examples:**
 ```bash
-# Using default list
-./test-subscribe-members2.sh members.csv
+# Using default list and connector URL
+./test-subscribe-members.sh members.csv mysecretpassword
 
-# Using specific list
-./test-subscribe-members2.sh members.csv test.lists.example.org
+# With specific list
+./test-subscribe-members.sh members.csv mysecretpassword test.lists.example.org
+
+# With specific list and connector URL
+./test-subscribe-members.sh members.csv mysecretpassword test.lists.example.org https://connector.example.com
 ```
 
 **CSV Format:**
@@ -311,14 +320,6 @@ Test batch subscription from an existing CSV file (standalone, no external depen
 user1@example.com,John,Doe
 user2@example.com,Jane,Smith
 user3@example.com,Bob,Johnson
-```
-
-**Configuration:**
-Edit the script or set environment variables:
-```bash
-export CONNECTOR_URL="https://mailman-connector.example.com"
-export CONNECTOR_PASSWORD="your_secret_password"
-./test-subscribe-members2.sh members.csv
 ```
 
 ## Response Format
